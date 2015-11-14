@@ -26,15 +26,19 @@ int main(int argc, void *argv) {
 			// TODO: rebuild index
 		}
 		else if (starts_with(command, "search for ")) {
-            // opens a file
             if (strlen(command) > 11) {
                 // TODO: split search queue into words
-                // TODO: stem queue
-                // TODO: search database
+                // TODO: stem search queue
+                // TODO: search database index
+				// TODO: return documents containing all words of the search queue, followed by n-1 and n-2 words. 
             }
             
         } else if (!strcmp(command, "add file ")) {
-            // TODO: add file to index
+			// TODO: open file
+			// TODO: remove stop words
+			// TODO: stem file
+			// TODO: add new stemmed words to index 
+			// TODO: add file to appropriate index
             
         } else if (starts_with(command, "remove file ")) {
             // TODO: remove file from index
