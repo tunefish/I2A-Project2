@@ -9,7 +9,6 @@ char *read_line(FILE *ptr);
 void sanitize_name(char* str);
 
 int main(int argc, void *argv) {
-    graph_p graph = NULL;
 
     int exit = 0;
     char *command;
@@ -22,10 +21,11 @@ int main(int argc, void *argv) {
             exit = 1;
             printf("Exit requested..");
             
-        } else if (strcmp(command, "rebuild index ") {
-            // TODO: rebuild index
-            
-        } else if (starts_with(command, "search for ")) {
+		}
+		else if (strcmp(command, "rebuild index ")) {
+			// TODO: rebuild index
+		}
+		else if (starts_with(command, "search for ")) {
             // opens a file
             if (strlen(command) > 11) {
                 // TODO: split search queue into words
