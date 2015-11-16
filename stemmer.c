@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -156,10 +155,66 @@ char *stem(char *word) {
         _BEGIN_REPLACE_SUFFIX(word, "ational", "ate");
         _ALT_REPLACE_SUFFIX(word, "tional", "tion");
         _ALT_REPLACE_SUFFIX(word, "enci", "ence");
+        _ALT_REPLACE_SUFFIX(word, "anci", "ance");
+        _ALT_REPLACE_SUFFIX(word, "izer", "ize");
+        _ALT_REPLACE_SUFFIX(word, "abli", "able");
+        _ALT_REPLACE_SUFFIX(word, "alli", "al");
+        _ALT_REPLACE_SUFFIX(word, "entli", "ent");
+        _ALT_REPLACE_SUFFIX(word, "eli", "e");
+        _ALT_REPLACE_SUFFIX(word, "ousli", "ous");
+        _ALT_REPLACE_SUFFIX(word, "ization", "ize");
+        _ALT_REPLACE_SUFFIX(word, "ation", "ate");
+        _ALT_REPLACE_SUFFIX(word, "ator", "ate");
+        _ALT_REPLACE_SUFFIX(word, "alism", "al");
+        _ALT_REPLACE_SUFFIX(word, "ivenes", "ive");
+        _ALT_REPLACE_SUFFIX(word, "fulness", "ful");
+        _ALT_REPLACE_SUFFIX(word, "ousness", "ous");
+        _ALT_REPLACE_SUFFIX(word, "aliti", "al");
+        _ALT_REPLACE_SUFFIX(word, "iviti", "ive");
+        _ALT_REPLACE_SUFFIX(word, "biliti", "ble");
         _END_REPLACE_SUFFIX
     }
-}
-
-int main() {
-    return 0;
+    
+    /* STEP 3 */
+    if (m > 0) {
+        _BEGIN_REPLACE_SUFFIX(word, "icate", "ic");
+        _ALT_REPLACE_SUFFIX(word, "ative", "");
+        _ALT_REPLACE_SUFFIX(word, "alize", "al");
+        _ALT_REPLACE_SUFFIX(word, "aciti", "ic");
+        _ALT_REPLACE_SUFFIX(word, "ical", "ic");
+        _ALT_REPLACE_SUFFIX(word, "ful", "");
+        _ALT_REPLACE_SUFFIX(word, "ness", "");
+        _END_REPLACE_SUFFIX
+    }
+    
+    /* STEP 4 */
+    l = strlen(word) - 1;
+    if (m > 1) {
+        _BEGIN_REPLACE_SUFFIX(word, "al", "");
+        _ALT_REPLACE_SUFFIX(word, "ance", "");
+        _ALT_REPLACE_SUFFIX(word, "ence", "");
+        _ALT_REPLACE_SUFFIX(word, "er", "");
+        _ALT_REPLACE_SUFFIX(word, "ic", "");
+        _ALT_REPLACE_SUFFIX(word, "able", "");
+        _ALT_REPLACE_SUFFIX(word, "ible", "");
+        _ALT_REPLACE_SUFFIX(word, "ant", "");
+        _ALT_REPLACE_SUFFIX(word, "ement", "");
+        _ALT_REPLACE_SUFFIX(word, "ment", "");
+        _ALT_REPLACE_SUFFIX(word, "ent", "");
+        _ALT_REPLACE_SUFFIX_COND(word, "ion", "", word[l-3] == 's' || word[l-3] == 't');
+        _ALT_REPLACE_SUFFIX(word, "ou", "");
+        _ALT_REPLACE_SUFFIX(word, "ism", "");
+        _ALT_REPLACE_SUFFIX(word, "ate", "");
+        _ALT_REPLACE_SUFFIX(word, "iti", "");
+        _ALT_REPLACE_SUFFIX(word, "ous", "");
+        _ALT_REPLACE_SUFFIX(word, "ive", "");
+        _ALT_REPLACE_SUFFIX(word, "ize", "");
+        _END_REPLACE_SUFFIX
+    }
+    
+    /* STEP 5a */
+    _REPLACE_SUFFIX_COND(word, "e", "", m > 1 || (m == 1 && ends_with_cvc(word)));
+    
+    /* STEP 5b */
+    _REPLACE_SUFFIX_COND(word, "l", "", m > 1 && ends_with_double_consonant(word));
 }
