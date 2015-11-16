@@ -5,7 +5,7 @@
 static int k, k0, j;	//j is a general offset into the string
 
 /*
- * Checkes whether i-th character of str is a consonant
+ * Checkes whether i-th character of word is a consonant
  */
 int is_consonant(char *word, int i)
 {
@@ -13,6 +13,41 @@ int is_consonant(char *word, int i)
     return c != 'a' && c != 'e' && c != 'i' && c != 'o' & c != 'u' && !(c == 'y' && i > 0 && is_consonant(word, i-1));
 }
 
+/*
+ * Checks whether word contains a vowel
+ */
+int contains_vowel(char *word) {
+    int i = 0;
+    while (i < strlen(word)) {
+        if (!is_consonant(word, i)) {
+            return 1;
+        }
+        
+        i++;
+    }
+    
+    return 0;
+}
+
+/*
+ * Checks whether word ends with a double consonant
+ */
+int ends_with_double_consonant(char *word) {
+    int l = strlen(word);
+    return word[l-1] == word[l-2] && is_consonant(word, l-1)
+}
+
+/*
+ * Checks whether word ands with a consonant-vowel-consonant combination where the last consonant is not W, X or Y
+ */
+int ends_with_cvc(char *word) {
+    int l = strlen(word) - 1;
+    return is_consonant(word, l-2) && !is_consonant(word, l-1) && is_consonant(word, l) && word[l] != 'w' && word[l] != 'x' && word[l] != 'y';
+}
+
+/*
+ * Calculates m value for a word
+ */
 int calculate_m(char *word) {
     int parts = 1;
     
@@ -36,116 +71,82 @@ int calculate_m(char *word) {
     return (           n - first_type          -      (n - first_type)%2      ) / 2;
 }
 
-//if vowelinstem() is TRUE, k0,...j, contains a vowel
-int vowelinstem()
-{
-	int i;
-	for (i = k0; i <= j; i++)
-	{
-		if (!cons(i)) return TRUE;
-		else return FALSE;
-	}
+/*
+ * Checks wether a word ends with a specific suffix
+ */
+int ends_with(char *word, char *suffix) {
+    return strlen(word) >= strlen(suffix) && memcmp(word + strlen(word) - strlen(suffix), suffix, strlen(suffix));
 }
 
-//if doublec(j) is true, then j,(j-1) contains a double consonant
-int doublec(int j)
-{
-	if (j < k0 + 1) return FALSE;
-	if (b[j] != b[j - 1]) return FALSE;
-	return cons(j);
+/*
+ * Replaces a suffix of a word
+ */
+char *replace_suffix(char *word, int suffix_length, char *replacement) {
+    if (suffix_length < strlen(replacement)) {
+        word = (char *) realloc(word, strlen(word) - suffix_length + strlen(replacement) + 1);
+    }
+    
+    // copy whole replacement string, including \0 string terminator
+    memcpy(word + strlen(word) - suffix_length, replacement, strlen(replacement) + 1);
+    return word;
 }
 
-//if cvc(i) is TRUE, then i-2,i-1,i has the form consonant-vowel-consonant
-//and the second c is not w,x, or y (used when trying to restore e to certain words)
-int cvc(int i)
-{
-	if (i < k0 + 2 || !cons(i) || cons(i - 1) || !cons(i - 2)) return FALSE;
-	{
-		int ch = b[i];
-		if (ch == 'w' || ch == 'x' || ch == 'y') return FALSE;
-	}
-	return TRUE;
-}
-
-//ends(s) is TRUE when when k0,...,k ends with the string s
-int ends(char * s)
-{
-	int length = s[0];
-	if (s[length] != b[k]) return FALSE;
-	if (length > k - k0 + 1) return FALSE;
-	if (memcmp(b + k - length + 1, s + 1, length) != 0) return FALSE;
-	j = k - length;
-	return TRUE;
-}
-
-//setto(s) sets (j+1),...k to the characters in the string s, readjusting k
-void setto(char *s)
-{
-	int length = s[0];
-	memmove(b + j + 1, s + 1, length);
-	k = j + length;
+/*
+ * Runs Porter Stemming Algorithm on a word
+ */
+char *stem(char *word) {
+    int m = calculate_m(word);
+    
+    /* STEP 1a */
+    if (ends_with(word, "sses")) {                                                  // sses -> ss
+        word = replace_suffix(word, 4, "ss");
+    } else if (ends_with(word, "ies")) {                                            // ies  -> i
+        word = replace_suffix(word, 3, "i");
+    } else if (!ends_with(word, "ss") && ends_with(word, "s")) {                    // s    ->
+        word = replace_suffix(word, 1, "");
+    }
+    
+    int vowel = contains_vowel(word);
+    int cont = 0;
+    
+    /* STEP 1b */
+    if (m > 0 && ends_with(word, "eed")) {                                          // eed  -> ee
+        word = replace_suffix(word, 3, "ee");
+    } else if (vowel && ends_with(word, "ing")) {                                   // ing  -> ed
+        word = replace_suffix(word, 3, "");
+        cont = 1;
+    } else if (vowel && ends_with(word, "ed")) {                                    // ed   ->
+        word = replace_suffix(word, 2, "");
+        cont = 1;
+    }
+    
+    int l = strlen(word) - 1;
+    if (cont) {
+        if (ends_with(word, "at")) {                                                // at   -> ate
+            word = replace_suffix(word, 2, "ate");
+        } else if (ends_with(word, "bl")) {                                         // bl   -> ble
+            word = replace_suffix(word, 2, "ble");
+        } else if (ends_with(word, "iz")) {                                         // iz   -> ize
+            word = replace_suffix(word, 2, "ize");
+        } else if (ends_with_double_consonant(word) && word[l] != 'l' && word[l] != 's' && word[l] != 'z') {      // double consonant -> single consonant
+            word[l-1] = '\0';
+        } else if (m == 1 && ends_with_cvc(word)) {                                 // *CVC -> e
+            word = replace_suffix(word, 0, "e");
+        }
+    }
+    
+    /* STEP 1c */
+    if (contains_vowel(word) && ends_with(word, "y")) {
+        word = replace_suffix(word, 1, "i");
+    }
+    
+    /* STEP 2 */
 }
 
 //r(s) will be used later...
 void r(char *s)
 {
 	if (m() > 0) setto(s);
-}
-
-/*
-step1ab() gets rid of plurals and -ed or -ing endingds
-eg.
-caresses  ->  caress
-ponies    ->  poni
-ties      ->  ti
-caress    ->  caress
-cats      ->  cat
-
-feed      ->  feed
-agreed    ->  agree
-disabled  ->  disable
-
-matting   ->  mat
-mating    ->  mate
-meeting   ->  meet
-milling   ->  mill
-messing   ->  mess
-
-meetings  ->  meet
-
-*/
-void step1ab()
-{
-	if (b[k] == 's')
-	{
-		if (ends("\04" "sses")) k -= 2; 
-		else if (ends("\03" "ies")) setto("\01" "i"); 
-		else if (b[k - 1] != 's') k--;
-	}
-	if (ends("\03" "eed")) { if (m() > 0) k--; } 
-	else if ((ends("\02" "ed") || ends("\03" "ing")) && vowelinstem())
-	{
-		k = j;
-		if (ends("\02" "at")) setto("\03" "ate"); 
-		else if (ends("\02" "bl")) setto("\03" "ble"); 
-		else if (ends("\02" "iz")) setto("\03" "ize"); 
-		else if (doublec(k))
-		{
-			k--;
-			{
-				int ch = b[k];
-				if (ch == 'l' || ch == 's' || ch == 'z') k++;
-			}
-		}
-		else if (m() == 1 && cvc(k)) setto("\01" "e");
-	}
-}
-
-//step1c() turns terminal y to i when there is another vowel in stem
-void step1c() 
-{
-	if (ends("\01" "y") && vowelinstem()) 
-		b[k] = "i";
 }
 
 //step2() maps double sufficies to single ones
