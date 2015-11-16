@@ -2,66 +2,38 @@
 #include <stdlib.h>
 #include <string.h>
 
-/*
-* used source code from https://www.cs.cmu.edu/~callan/Teaching/porter.c
-*/
-
-#define TRUE 1
-#define FALSE 0
-
-static char * b;		//buffer for word to be stemmed
 static int k, k0, j;	//j is a general offset into the string
 
-//checks if b[i] is a consonant
-int cons(int i)
+/*
+ * Checkes whether i-th character of str is a consonant
+ */
+int is_consonant(char *word, int i)
 {
-	switch (b[i])
-	{
-	case 'a': case 'e': case'i': case 'o': case 'u': return FALSE;
-	case 'y': return (i == k0) ? TRUE : !cons(i - 1);
-	default: return TRUE;
-	}
+    char c = tolower(word[i]);
+    return c != 'a' && c != 'e' && c != 'i' && c != 'o' & c != 'u' && !(c == 'y' && i > 0 && is_consonant(word, i-1));
 }
 
-/*m() measures the number of consonant sequences between k0 and j, 
-where c is a consonant sequence and v is a vowel sequence, and ... is arbitrary
-such that
-
-<c><v>			give 0
-<c>vc<v>		gives 1
-<c>vcvc<v>		gives 2
-<c>vcvcvc<v>	gives 3
- ...
- */
-
-int m()
-{
-	int n = 0;
-	int i = k0;
-	while (TRUE)
-	{
-		if (i > j) return n;
-		if (!cons(i)) break; i++;
-	}
-	i++;
-	while (TRUE)
-	{
-		while (TRUE)
-		{
-			if (i > j) return n;
-			if (cons(i)) break;
-			i++;
-		}
-		i++;
-		n++;
-		while (TRUE)
-		{
-			if (i > j) return n;
-			if (!cons(i)) break;
-			i++;
-		}
-		i++;
-	}
+int calculate_m(char *word) {
+    int parts = 1;
+    
+    // type (consonant = 1, vowel = 0) of first letter
+    char first_type = is_consonant(word, 0);
+    
+    // type of last checked letter
+    char tmp_type = first_type;
+    
+    int i = 0;
+    while (i < strlen(word)) {
+        // if last checked type is different from current type, we enter a new part of the word
+        if (tmp_type != is_consonant(word, i)) {
+            tmp_type = !tmp_type;
+            parts++;
+        }
+        i++;
+    }
+    
+    //       remove optional initial consonant   remove optional vowel ending
+    return (           n - first_type          -      (n - first_type)%2      ) / 2;
 }
 
 //if vowelinstem() is TRUE, k0,...j, contains a vowel
