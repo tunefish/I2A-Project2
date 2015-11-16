@@ -26,46 +26,13 @@ if (__c && ends_with(__w, __s)) {\
 
 #define _END_REPLACE_SUFFIX }
 
-/*
- * Checkes whether i-th character of word is a consonant
- */
-int is_consonant(char *word, int i)
-{
-    char c = tolower(word[i]);
-    return c != 'a' && c != 'e' && c != 'i' && c != 'o' & c != 'u' && !(c == 'y' && i > 0 && is_consonant(word, i-1));
-}
-
-/*
- * Checks whether word contains a vowel
- */
-int contains_vowel(char *word) {
-    int i = 0;
-    while (i < strlen(word)) {
-        if (!is_consonant(word, i)) {
-            return 1;
-        }
-        
-        i++;
-    }
-    
-    return 0;
-}
-
-/*
- * Checks whether word ends with a double consonant
- */
-int ends_with_double_consonant(char *word) {
-    int l = strlen(word);
-    return word[l-1] == word[l-2] && is_consonant(word, l-1);
-}
-
-/*
- * Checks whether word ands with a consonant-vowel-consonant combination where the last consonant is not W, X or Y
- */
-int ends_with_cvc(char *word) {
-    int l = strlen(word) - 1;
-    return is_consonant(word, l-2) && !is_consonant(word, l-1) && is_consonant(word, l) && word[l] != 'w' && word[l] != 'x' && word[l] != 'y';
-}
+int calculate_m(char *word);
+int is_consonant(char *word, int i);
+int contains_vowel(char *word);
+int ends_with(char *word, char *suffix);
+int ends_with_double_consonant(char *word);
+int ends_with_cvc(char *word);
+char *replace_suffix(char *word, int suffix_length, char *replacement);
 
 /*
  * Calculates m value for a word
@@ -94,10 +61,51 @@ int calculate_m(char *word) {
 }
 
 /*
+ * Checkes whether i-th character of word is a consonant
+ */
+int is_consonant(char *word, int i)
+{
+    char c = tolower(word[i]);
+    return c != 'a' && c != 'e' && c != 'i' && c != 'o' & c != 'u' && !(c == 'y' && i > 0 && is_consonant(word, i-1));
+}
+
+/*
+ * Checks whether word contains a vowel
+ */
+int contains_vowel(char *word) {
+    int i = 0;
+    while (i < strlen(word)) {
+        if (!is_consonant(word, i)) {
+            return 1;
+        }
+        
+        i++;
+    }
+    
+    return 0;
+}
+
+/*
  * Checks wether a word ends with a specific suffix
  */
 int ends_with(char *word, char *suffix) {
     return strlen(word) >= strlen(suffix) && memcmp(word + strlen(word) - strlen(suffix), suffix, strlen(suffix));
+}
+
+/*
+ * Checks whether word ends with a double consonant
+ */
+int ends_with_double_consonant(char *word) {
+    int l = strlen(word);
+    return word[l-1] == word[l-2] && is_consonant(word, l-1);
+}
+
+/*
+ * Checks whether word ands with a consonant-vowel-consonant combination where the last consonant is not W, X or Y
+ */
+int ends_with_cvc(char *word) {
+    int l = strlen(word) - 1;
+    return is_consonant(word, l-2) && !is_consonant(word, l-1) && is_consonant(word, l) && word[l] != 'w' && word[l] != 'x' && word[l] != 'y';
 }
 
 /*
@@ -125,10 +133,9 @@ char *stem(char *word) {
     _ALT_REPLACE_SUFFIX_COND(word, "s", "", !ends_with(word, "ss"));
     _END_REPLACE_SUFFIX
     
+    /* STEP 1b */
     int vowel = contains_vowel(word);
     int cont = 0;
-    
-    /* STEP 1b */
     _BEGIN_REPLACE_SUFFIX_COND(word, "eed", "ee", m > 0);
     _ALT_REPLACE_SUFFIX_COND(word, "ing", "", vowel);
         cont = 1;
@@ -217,4 +224,6 @@ char *stem(char *word) {
     
     /* STEP 5b */
     _REPLACE_SUFFIX_COND(word, "l", "", m > 1 && ends_with_double_consonant(word));
+    
+    return word;
 }
