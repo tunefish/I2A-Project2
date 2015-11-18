@@ -8,11 +8,9 @@ typedef struct indexed_word {
     char *documents[];
 } indexed_word_t, *indexed_word_p;
 
-int add_file(char *);
-int remove_file(char *);
-int search_database(char *);
+void add_file(char *);
+void remove_file(char *);
+char search_database(char *);
 void rebuild_index();
 database_p load_database();
 
-//idea: store stemmed words for index as keys in a hash table. The value for each key
-//can be an array of documents containing the key (stemmed word in index)
