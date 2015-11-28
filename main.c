@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include "stemmer.c"
 #include "index.c"
 
 int starts_with(char *str, char *pre);
@@ -30,7 +30,7 @@ int main(int argc, void *argv) {
                 // TODO: split search queue into words
                 // TODO: stem search queue
                 // TODO: search database index
-				// TODO: return documents containing all words of the search queue, followed by n-1 and n-2 words. 
+				// TODO: return documents containing all words of the search queue, followed by n-1 and n-2 words (up to 10). 
             }
             
         } else if (!strcmp(command, "add file ")) {
