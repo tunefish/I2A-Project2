@@ -7,28 +7,30 @@
 #include "stemmer.h"
 
 void write_index_to_file(database_p db);
+void parse_file_for_index(database_p db, char *file);
 
 /*
  * Adds a file to the index
  */
-void add_file(database_p db, char * file) {
+void add_file(database_p db, char *file) {
 	FILE *fb_file = fopen("filebase", "a");
     if (!fb_file) {
-        printf("Error: filebase file not found\n");
+        printf("Error: filebase file not found\nFile not added to filebase!");
         return;
     }
     
     fprintf(fb_file, "%s\n", file);
     fclose(fb_file);
     
-    // TODO: parse contents of file and add it to database
+    // parse file contents and add words to index
+    parse_file_for_index(db, file);
+    write_index_to_file(db);
 }
 
 /*
  * Removes a file from index
  */
-void remove_file(database_p db, char * file)
-{
+void remove_file(database_p db, char *file) {
 	FILE *fb_file = fopen("filebase", "a");
     if (!fb_file) {
         printf("Error: filebase file not found\nFile not removed from filebase!\n");
@@ -54,6 +56,11 @@ void remove_file(database_p db, char * file)
     
     // create copy of filebase in .fb_tmp_cpy without the line containing the file to be removed
     FILE *fb_copy = fopen(".fb_tmp_cpy", "w");
+    if (!fb_copy) {
+        fprint("Error: couldn't create temporary copy of filebase.\n File not removed from filebase!\n");
+        return;
+    }
+    
     char c;
     int line = 0;
     while ((c = getc(fb_file)) != EOF) {
@@ -117,7 +124,7 @@ void remove_file(database_p db, char * file)
 /*
  * Searches index for indexed words and returns documents containing these words
  */
-indexed_word_p search_database(database_p db, char * query) {
+indexed_word_p search_database(database_p db, char *query) {
 	//TODO: search database for indexed words
 	//TODO: return *documents[] from indexed word
 	return NULL;
@@ -126,9 +133,32 @@ indexed_word_p search_database(database_p db, char * query) {
 /*
  * Regenerates the index based on the files in the filebase
  */
-void rebuild_index(database_p db) {
-	//TODO:
+database_p rebuild_index() {
+    FILE *fb_file = fopen("filebase", "r");
+    if (!fb_file) {
+        printf("Error: filebase file not found\nIndex was not rebuild\n");
+        return;
+    }
+    
+    database_p db = (database_p) malloc(sizeof(database_t));
+    db->words = NULL;
+    
+    char *file;
+    while ((file = read_line(fb_file))) {
+        parse_file_for_index(db, file);
+    }
+    
+    fclose(fb_file);
+    
     write_index_to_file(db);
+    return db;
+}
+
+/*
+ * Parses a file and adds its words to the index
+ */
+void parse_file_for_index(database_p db, char *file) {
+    
 }
 
 /*
@@ -136,6 +166,10 @@ void rebuild_index(database_p db) {
  */
 void write_index_to_file(database_p db) {
     FILE *db_file = fopen("index", "w");
+    if (!db_file) {
+        printf("Error: couldn't open index file to write.\nUnable to write index to file\n");
+        return;
+    }
     
     // write one word in each line
     indexed_word_p w = db->words;
@@ -162,7 +196,7 @@ void write_index_to_file(database_p db) {
 database_p load_database() {
 	FILE * db_file = fopen("index", "r");
     if (!db_file) {
-        printf("Error: index file not found\n");
+        printf("Error: index file not found\nDatabase not loaded\n");
         return NULL;
     }
     
