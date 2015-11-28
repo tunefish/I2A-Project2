@@ -4,6 +4,9 @@
 
 #include "index.h"
 #include "util.h"
+#include "stemmer.h"
+
+void write_index_to_file(database_p db);
 
 /*
  * Adds a file to the index
@@ -74,7 +77,7 @@ void remove_file(database_p db, char * file)
     // remove document from index
     indexed_word_p w = db->words;
     indexed_word_p p = NULL;
-    do {
+    while (w) {
         int i;
         for (i = 0; i < w->nr_docs; i++) {
             int cmp = strcmp(w->documents[i], file);
@@ -105,20 +108,52 @@ void remove_file(database_p db, char * file)
             p = w;
             w = w->next;
         }
-    } while (w);
+    }
+    
+    // commit changes to file
+    write_index_to_file(db);
 }
 
-/*search database for indexed word. Return documents containing word*/
+/*
+ * Searches index for indexed words and returns documents containing these words
+ */
 indexed_word_p search_database(database_p db, char * query) {
 	//TODO: search database for indexed words
 	//TODO: return *documents[] from indexed word
 	return NULL;
 }
 
-/*rebuild list of indexed words and documents associated with them*/
+/*
+ * Regenerates the index based on the files in the filebase
+ */
 void rebuild_index(database_p db) {
 	//TODO:
-    return;
+    write_index_to_file(db);
+}
+
+/*
+ * Writes index to file
+ */
+void write_index_to_file(database_p db) {
+    FILE *db_file = fopen("index", "w");
+    
+    // write one word in each line
+    indexed_word_p w = db->words;
+    while (w) {
+        fprintf(db_file, "%s:%s", w->stem, w->documents[0]);
+        
+        // list all documents containing this word (or variations of it)
+        int i;
+        for(i = 1; i < w->nr_docs; i++) {
+            fprintf(db_file, "|%s", w->documents[i]);
+        }
+        
+        fprintf(db_file, "\n");
+        
+        w = w->next;
+    }
+    
+    fclose(db_file);
 }
 
 /*
