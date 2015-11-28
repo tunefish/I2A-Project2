@@ -3,14 +3,15 @@
 #include <string.h>
 
 #include "index.h"
-#include "util.h"
 #include "stemmer.h"
+#include "util.h"
 
 int starts_with(char *str, char *pre);
 char *read_line(FILE *ptr);
 void sanitize_name(char* str);
 
 int main(int argc, void *argv) {
+    index_p index = load_index();
 
     int exit = 0;
     char *command;
@@ -19,36 +20,63 @@ int main(int argc, void *argv) {
         char *command = read_line(stdin);
         
         if (!strcmp(command, "exit")) {
-            // exit program
+            // exit command
             exit = 1;
             printf("Exit requested..");
             
-		}
-		else if (strcmp(command, "rebuild index ")) {
-			// TODO: rebuild index
-		}
-		else if (starts_with(command, "search for ")) {
-            if (strlen(command) > 11) {
-                // TODO: split search queue into words
-                // TODO: stem search queue
-                // TODO: search database index
-				// TODO: return documents containing all words of the search queue, followed by n-1 and n-2 words (up to 10). 
+		} else if (strcmp(command, "rebuild index ")) {
+            // rebuild index command
+            close_index(index);
+            index = rebuild_index();
+		} else if (starts_with(command, "search for ")) {
+            // search for <search_query> command
+            char *query = (char *) malloc(strlen(command) - 10);
+            memcpy(query, command+11, strlen(command) - 10);
+            
+            index_p result = search_index(index, query);
+            
+            if (result) {
+                // print result
+                int count = 0;
+                indexed_word_p w = result->words;
+                while (w) {
+                    printf("Documents containing %s:\n", w->stem);
+                    
+                    int i;
+                    for (i = 0; i < w->nr_docs; i++, count++) {
+                        printf(" [%2d] %s\n", count, w->documents[i]);
+                    }
+                    
+                    w = w->next;
+                }
+                
+                close_index(result);
+            } else {
+                printf("No results found in filebase!\n");
             }
             
+            free(query);
+            
         } else if (!strcmp(command, "add file ")) {
-			// TODO: open file
-			// TODO: remove stop words
-			// TODO: stem file
-			// TODO: add new stemmed words to index 
-			// TODO: add file to appropriate index
+            // add file <file> command
+            char *file = (char*) malloc(strlen(command) - 8);
+            memcpy(file, command+9, strlen(command) - 8);
+            
+			add_file(index, file);
+            free(file);
             
         } else if (starts_with(command, "remove file ")) {
-            // TODO: remove file from index
+            // remove file <file> command
+            char *file = (char*) malloc(strlen(command) - 11);
+            memcpy(file, command+12, strlen(command) - 11);
             
+            remove_file(index, file);
+            free(file);
         }
     }
 
-    // TODO: release resources allocated by program
+    // release memory
+    close_index(index);
 
     return 0;
 }
