@@ -3,34 +3,45 @@
 #include <string.h>
 
 #include "index.h"
-#include "util.h"
 #include "stemmer.h"
+#include "util.h"
 
-void write_index_to_file(database_p db);
-void parse_file_for_index(database_p db, char *file);
+void write_index_to_file(index_p index);
+void parse_file_for_index(index_p index, char *file);
 
 /*
  * Adds a file to the index
  */
-void add_file(database_p db, char *file) {
-	FILE *fb_file = fopen("filebase", "a");
+void add_file(index_p index, char *file) {
+    // check if file exists and can be read
+    FILE *fb_file = fopen(file, "r");
+    if (!fb_file) {
+        printf("Error: %s does not exist or read rights are missing.\nFile not added to filebase!\n");
+        return;
+    } else {
+        fclose(fb_file);
+    }
+    
+    // load filebase
+	fb_file = fopen("filebase", "a");
     if (!fb_file) {
         printf("Error: filebase file not found\nFile not added to filebase!\n");
         return;
     }
     
+    // add file to filebase
     fprintf(fb_file, "%s\n", file);
     fclose(fb_file);
     
     // parse file contents and add words to index
-    parse_file_for_index(db, file);
-    write_index_to_file(db);
+    parse_file_for_index(index, file);
+    write_index_to_file(index);
 }
 
 /*
  * Removes a file from index
  */
-void remove_file(database_p db, char *file) {
+void remove_file(index_p index, char *file) {
 	FILE *fb_file = fopen("filebase", "a");
     if (!fb_file) {
         printf("Error: filebase file not found\nFile not removed from filebase!\n");
@@ -84,7 +95,7 @@ void remove_file(database_p db, char *file) {
     rename(".fb_tmp_cpy", "filebase");
     
     // remove document from index
-    indexed_word_p w = db->words;
+    indexed_word_p w = index->words;
     indexed_word_p p = NULL;
     while (w) {
         int i;
@@ -103,7 +114,7 @@ void remove_file(database_p db, char *file) {
         if (w->nr_docs == 0) {
             // only occurance of this word is in removed document -> remove word from index
             if (!p) {
-                db->words = w->next;
+                index->words = w->next;
             } else {
                 p->next = w->next;
             }
@@ -120,14 +131,14 @@ void remove_file(database_p db, char *file) {
     }
     
     // commit changes to file
-    write_index_to_file(db);
+    write_index_to_file(index);
 }
 
 /*
  * Searches index for indexed words and returns documents containing these words
  */
-indexed_word_p search_database(database_p db, char *query) {
-	//TODO: search database for indexed words
+index_p search_index(index_p index, char *query) {
+	//TODO: search index for indexed words
 	//TODO: return *documents[] from indexed word
 	return NULL;
 }
@@ -135,80 +146,80 @@ indexed_word_p search_database(database_p db, char *query) {
 /*
  * Regenerates the index based on the files in the filebase
  */
-database_p rebuild_index() {
+index_p rebuild_index() {
     FILE *fb_file = fopen("filebase", "r");
     if (!fb_file) {
         printf("Error: filebase file not found\nIndex was not rebuild\n");
         return;
     }
     
-    database_p db = (database_p) malloc(sizeof(database_t));
-    db->words = NULL;
+    index_p index = (index_p) malloc(sizeof(index_t));
+    index->words = NULL;
     
     char *file;
     while ((file = read_line(fb_file))) {
-        parse_file_for_index(db, file);
+        parse_file_for_index(index, file);
     }
     
     fclose(fb_file);
     
-    write_index_to_file(db);
-    return db;
+    write_index_to_file(index);
+    return index;
 }
 
 /*
  * Parses a file and adds its words to the index
  */
-void parse_file_for_index(database_p db, char *file) {
+void parse_file_for_index(index_p index, char *file) {
     
 }
 
 /*
  * Writes index to file
  */
-void write_index_to_file(database_p db) {
-    FILE *db_file = fopen("index", "w");
-    if (!db_file) {
+void write_index_to_file(index_p index) {
+    FILE *index_file = fopen("index", "w");
+    if (!index_file) {
         printf("Error: couldn't open index file to write.\nUnable to write index to file\n");
         return;
     }
     
     // write one word in each line
-    indexed_word_p w = db->words;
+    indexed_word_p w = index->words;
     while (w) {
-        fprintf(db_file, "%s:%s", w->stem, w->documents[0]);
+        fprintf(index_file, "%s:%s", w->stem, w->documents[0]);
         
         // list all documents containing this word (or variations of it)
         int i;
         for(i = 1; i < w->nr_docs; i++) {
-            fprintf(db_file, "|%s", w->documents[i]);
+            fprintf(index_file, "|%s", w->documents[i]);
         }
         
-        fprintf(db_file, "\n");
+        fprintf(index_file, "\n");
         
         w = w->next;
     }
     
-    fclose(db_file);
+    fclose(index_file);
 }
 
 /*
- * Parses and loads contents of the index file into a database struct
+ * Parses and loads contents of the index file into a index struct
  */
-database_p load_database() {
-	FILE * db_file = fopen("index", "r");
-    if (!db_file) {
-        printf("Error: index file not found\nDatabase not loaded\n");
+index_p load_index() {
+	FILE * index_file = fopen("index", "r");
+    if (!index_file) {
+        printf("Error: index file not found\nindex not loaded\n");
         return NULL;
     }
     
-    database_p db = (database_p) malloc(sizeof(database_t));
-    db->words = NULL;
+    index_p index = (index_p) malloc(sizeof(index_t));
+    index->words = NULL;
     
     char *line;
     char *stem;
     char *doc;
-    while ((line = read_line(db_file))) {
+    while ((line = read_line(index_file))) {
         // get the stem
         stem = strtok(line, ":");
        
@@ -224,9 +235,9 @@ database_p load_database() {
         memcpy(w->stem, stem, strlen(stem) + 1);
         w->nr_docs = 0;
         
-        // insert into db
-        w->next = db->words;
-        db->words = w;
+        // insert into index
+        w->next = index->words;
+        index->words = w;
         
         // get list of documents containing this stem
         stem = strtok(NULL, ":");
@@ -244,18 +255,18 @@ database_p load_database() {
         }
     }
     
-    fclose(db_file);
+    fclose(index_file);
     
-	return db;
+	return index;
 }
 
 /*
- * Frees the memory occupied by a database struct
+ * Frees the memory occupied by a index struct
  */
-void close_database(database_p db) {
+void close_index(index_p index) {
     indexed_word_p w;
-    while ((w = db->words)) {
-        db->words = w->next;
+    while ((w = index->words)) {
+        index->words = w->next;
         
         free(w->stem);
         
@@ -266,5 +277,5 @@ void close_database(database_p db) {
         
         free(w);
     }
-    free(db);
+    free(index);
 }
