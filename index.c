@@ -15,7 +15,7 @@ void parse_file_for_index(database_p db, char *file);
 void add_file(database_p db, char *file) {
 	FILE *fb_file = fopen("filebase", "a");
     if (!fb_file) {
-        printf("Error: filebase file not found\nFile not added to filebase!");
+        printf("Error: filebase file not found\nFile not added to filebase!\n");
         return;
     }
     
@@ -37,6 +37,7 @@ void remove_file(database_p db, char *file) {
         return;
     }
     
+    // get line in file which needs to be removed
     char *f;
     int remove_line = 0;
     while ((f = read_line(fb_file))) {
@@ -61,6 +62,7 @@ void remove_file(database_p db, char *file) {
         return;
     }
     
+    // copy contents without the line containing the file to be removed
     char c;
     int line = 0;
     while ((c = getc(fb_file)) != EOF) {
