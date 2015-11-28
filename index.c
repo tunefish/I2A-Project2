@@ -6,8 +6,7 @@
 #include "util.h"
 
 /*add file to database*/
-void add_file(char * file)
-{
+void add_file(char * file) {
 	//TODO: remove all stop words from file
 	//TODO: stem all remaining words
 	//TODO: create new indexed words
@@ -24,9 +23,8 @@ void remove_file(char * file)
 }
 
 /*search database for indexed word. Return documents containing word*/
-indexed_word_p search_database(char * query)
-{
-	//TODO: search database for indexed word
+indexed_word_p search_database(char * query) {
+	//TODO: search database for indexed words
 	//TODO: return *documents[] from indexed word
 	return NULL;
 }
