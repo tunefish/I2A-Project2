@@ -5,7 +5,9 @@
 #include "index.h"
 #include "util.h"
 
-/*add file to database*/
+/*
+ * Adds a file to the index
+ */
 void add_file(database_p db, char * file) {
 	FILE *fb_file = fopen("filebase", "a");
     if (!fb_file) {
@@ -19,7 +21,9 @@ void add_file(database_p db, char * file) {
     // TODO: parse contents of file and add it to database
 }
 
-/*remove file from database*/
+/*
+ * Removes a file from index
+ */
 void remove_file(database_p db, char * file)
 {
 	FILE *fb_file = fopen("filebase", "a");
@@ -31,8 +35,13 @@ void remove_file(database_p db, char * file)
     char *f;
     int remove_line = 0;
     while ((f = read_line(fb_file))) {
-        if (strlen(f) == strlen(file) && !memcmp(f, file, strlen(f))) {
+        int cmp = strcmp(f, file);
+        if (!cmp) {
             break;
+        } else if (cmp > 1) {
+            // documents sorted -> no need to search further
+            printf("Error: %s is not in the index\nFile not removed from filebase!\n");
+            return;
         }
         
         remove_line++;
@@ -62,7 +71,41 @@ void remove_file(database_p db, char * file)
     remove("filebase");
     rename(".fb_tmp_cpy", "filebase");
     
-    
+    // remove document from index
+    indexed_word_p w = db->words;
+    indexed_word_p p = NULL;
+    do {
+        int i;
+        for (i = 0; i < w->nr_docs; i++) {
+            int cmp = strcmp(w->documents[i], file);
+            if (!cmp) {
+                memcpy(w->documents[i], w->documents[i+1], (w->nr_docs - i - 1) * sizeof(char *));
+                w->nr_docs--;
+                break;
+            } else if (cmp > 0) {
+                // documents sorted -> no need to search further
+                break;
+            }
+        }
+        
+        if (w->nr_docs == 0) {
+            // only occurance of this word is in removed document -> remove word from index
+            if (!p) {
+                db->words = w->next;
+            } else {
+                p->next = w->next;
+            }
+            
+            indexed_word_p n = w->next;
+            free(w->stem);
+            free(w);
+            w = n;
+        } else {
+            // get next indexed word
+            p = w;
+            w = w->next;
+        }
+    } while (w);
 }
 
 /*search database for indexed word. Return documents containing word*/
