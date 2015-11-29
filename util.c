@@ -51,9 +51,14 @@ char *read_line(FILE *ptr) {
         return NULL;
     }
     
-    // remove newline characted at the end of the string
+    // remove newline character at the end of the string
     if (*(line - 1) == '\n') {
         *(line - 1) = '\0';
+        
+        // special case Windows (DOH!) -> remove \r as well
+        if (*(line - 2) == '\r') {
+            *(line - 2) = '\0';
+        }
     }
     
     return linep;
@@ -67,6 +72,8 @@ void nonalpha_to_space(char *str) {
     for(c = str; *c; c++) {
         if(!isalpha(*c)) {
             *c = ' ';
+        } else {
+            *c = tolower(*c);
         }
     }
 }

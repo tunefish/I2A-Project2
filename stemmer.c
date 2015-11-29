@@ -92,7 +92,7 @@ int contains_vowel(char *word) {
  * Checks wether a word ends with a specific suffix
  */
 int ends_with(char *word, char *suffix) {
-    return strlen(word) >= strlen(suffix) && memcmp(word + strlen(word) - strlen(suffix), suffix, strlen(suffix));
+    return strlen(word) >= strlen(suffix) && !memcmp(word + strlen(word) - strlen(suffix), suffix, strlen(suffix));
 }
 
 /*

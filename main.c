@@ -7,7 +7,7 @@
 #include "util.h"
 
 int main(int argc, void *argv) {
-    //load_stopwords();
+    load_stopwords();
     index_p index = load_index();
 
     int exit = 0;
