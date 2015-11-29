@@ -18,7 +18,7 @@ char *read_line(FILE *ptr) {
 
     for (;;) {
         c = fgetc(ptr);
-
+        
         // end of string / file => return string
         if(c == EOF) {
             break;
@@ -33,7 +33,7 @@ char *read_line(FILE *ptr) {
                 free(linep);
                 return NULL;
             }
-
+            
             line = linen + (line - linep);
             linep = linen;
         }
@@ -45,17 +45,17 @@ char *read_line(FILE *ptr) {
     }
 
     *line = '\0';
-
+    
     // nothing read => return NULL
     if (strlen(linep) == 0) {
         return NULL;
     }
-
+    
     // remove newline characted at the end of the string
     if (*(line - 1) == '\n') {
         *(line - 1) = '\0';
     }
-
+    
     return linep;
 }
 

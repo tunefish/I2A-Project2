@@ -32,7 +32,7 @@ typedef struct doc_found {
  * Loads stopwords array from the stopwords file
  */
 void load_stopwords() {
-    FILE *sw_file = fopen("stopwords", "r");
+    FILE *sw_file = fopen("/stopwords", "r");
     if (!sw_file) {
         printf("stopwords file not found.\nCan't remove stopwords!\n");
         return;
@@ -95,10 +95,8 @@ int is_stopword(char *word) {
  * Adds a file to the index
  */
 index_p add_file(index_p index, char *file) {
-    index = (index_p) realloc(index, sizeof(index) + sizeof(char *) * (index->nr_docs + 1));
-
     // insert file into file list (alphabetically ordered)
-    int doc_id;
+    int doc_id = 0;
     for (doc_id = 0; doc_id < index->nr_docs; doc_id++) {
         int cmp = strcmp(index->documents[doc_id], file);
 
@@ -106,13 +104,18 @@ index_p add_file(index_p index, char *file) {
             printf("%s is already in the filebase.\n", file);
             return;
         } else if (0 < cmp) {
-            // right position in list found, insert
-            memcpy(&index->documents[doc_id+1], &index->documents[doc_id], sizeof(char *) * (index->nr_docs - doc_id));
-            index->documents[doc_id] = (char *) malloc(strlen(file) + 1);
-            memcpy(index->documents[doc_id], file, strlen(file) + 1);
-            index->nr_docs++;
+            // right position in list found
+            break;
         }
     }
+
+    // insert document in list
+    printf("index %d\n", doc_id); // DEBUG
+    index = (index_p) realloc(index, sizeof(index_t) + sizeof(char *) * (index->nr_docs + 1));
+    memcpy(&index->documents[doc_id+1], &index->documents[doc_id], sizeof(char *) * (index->nr_docs - doc_id));
+    index->documents[doc_id] = (char *) malloc(strlen(file) + 1);
+    memcpy(index->documents[doc_id], file, strlen(file) + 1);
+    index->nr_docs++;
 
     // update indices
     indexed_word_p w = index->words;
@@ -352,12 +355,14 @@ void parse_file_for_index(index_p index, char *file) {
             }
 
             char *word_stem = stem(word);
+            printf("%s -> %s\n", word, word_stem);
 
             // insert document into index / add new stem to index
             indexed_word_p w = index->words;
             indexed_word_p p = NULL;
             int flag = 0;
             while (w && !flag) {
+                printf("testing %s\n", w->stem);
                 int cmp = strcmp(w->stem, word_stem);
                 if (!cmp) {
                     // stem is already indexed
@@ -579,17 +584,17 @@ int find_str(char **strs, char *str, int min, int max) {
         // string found
         return middle;
     } else if (min != max) {
-        if (cmp < 0) {
+        if (cmp < 0 && min != middle) {
             // continue search in left half
             return find_str(strs, str, min, middle - 1);
-        } else {
+        } else if (max != middle) {
             // continue search in right half
-            return find_str(strs, str, middle + 1, min);
+            return find_str(strs, str, middle + 1, max);
         }
-    } else {
-        // finished searching
-        return -1;
     }
+    
+    // finished searching
+    return -1;
 }
 
 /*
@@ -607,7 +612,7 @@ int find_int(int *ints, int i, int min, int max) {
             return find_int(ints, i, min, middle - 1);
         } else {
             // continue search in right half
-            return find_int(ints, i, middle + 1, min);
+            return find_int(ints, i, middle + 1, max);
         }
     } else {
         // finished searching

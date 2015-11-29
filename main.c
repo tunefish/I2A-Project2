@@ -7,11 +7,10 @@
 #include "util.h"
 
 int main(int argc, void *argv) {
-    load_stopwords();
+    //load_stopwords();
     index_p index = load_index();
 
     int exit = 0;
-    char *command;
     while (!exit) {
         printf(" > ");
         char *command = read_line(stdin);
@@ -19,9 +18,9 @@ int main(int argc, void *argv) {
         if (!strcmp(command, "exit")) {
             // exit command
             exit = 1;
-            printf("Exit requested..");
+            printf("Exit requested..\n");
 
-		} else if (strcmp(command, "rebuild index ")) {
+		} else if (!strcmp(command, "rebuild index")) {
             // rebuild index command
             rebuild_index(index);
 		} else if (starts_with(command, "search for ")) {
@@ -53,7 +52,7 @@ int main(int argc, void *argv) {
 
             free(query);
 
-        } else if (!strcmp(command, "add file ")) {
+        } else if (starts_with(command, "add file ")) {
             // add file <file> command
             char *file = (char*) malloc(strlen(command) - 8);
             memcpy(file, command+9, strlen(command) - 8);
@@ -69,9 +68,11 @@ int main(int argc, void *argv) {
             remove_file(index, file);
             free(file);
         }
+        
+        free(command);
     }
+    
 
-    free(command);
 
     // release memory
     release_stopwords();
