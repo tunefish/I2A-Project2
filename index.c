@@ -8,6 +8,56 @@
 
 void write_index_to_file(index_p index);
 void parse_file_for_index(index_p index, char *file);
+void load_stopwords();
+void release_stopwords();
+
+static int nr_stopwords = 0;
+static char **stopwords = NULL;
+
+/*
+ * Loads stopwords array from the stopwords file
+ */
+void load_stopwords() {
+    FILE *sw_file = fopen("stopwords", "r");
+    if (!sw_file) {
+        printf("stopwords file not found.\nCan't remove stopwords!\n");
+        return;
+    }
+    
+    int nr_stopwords;
+    char c;
+    while ((c = getc(sw_file)) != EOF) {
+        if (c == '\n') {
+            nr_stopwords++;
+        }
+    }
+    
+    stopwords = (char**) malloc(sizeof(char *) * nr_stopwords);
+    
+    rewind(sw_file);
+    
+    char *w;
+    int i = 0;
+    while ((w = read_line(sw_file))) {
+        stopwords[i] = w;
+        i++;
+    }
+    
+    fclose(sw_file);
+}
+
+/*
+ * Releases the memory allocated for the stopwords array
+ */
+void release_stopwords() {
+    if (stopwords) {
+        int i;
+        for (i = 0; i < nr_stopwords; i++) {
+            free(stopwords[i]);
+        }
+        free(stopwords);
+    }
+}
 
 /*
  * Adds a file to the index
@@ -62,6 +112,7 @@ void remove_file(index_p index, char *file) {
         }
         
         remove_line++;
+        free(f);
     }
     
     rewind(fb_file);
@@ -69,7 +120,7 @@ void remove_file(index_p index, char *file) {
     // create copy of filebase in .fb_tmp_cpy without the line containing the file to be removed
     FILE *fb_copy = fopen(".fb_tmp_cpy", "w");
     if (!fb_copy) {
-        fprint("Error: couldn't create temporary copy of filebase.\n File not removed from filebase!\n");
+        printf("Error: couldn't create temporary copy of filebase.\n File not removed from filebase!\n");
         return;
     }
     
@@ -102,6 +153,8 @@ void remove_file(index_p index, char *file) {
         for (i = 0; i < w->nr_docs; i++) {
             int cmp = strcmp(w->documents[i], file);
             if (!cmp) {
+                free(w->documents[i]);
+                
                 memcpy(w->documents[i], w->documents[i+1], (w->nr_docs - i - 1) * sizeof(char *));
                 w->nr_docs--;
                 break;
@@ -159,6 +212,7 @@ index_p rebuild_index() {
     char *file;
     while ((file = read_line(fb_file))) {
         parse_file_for_index(index, file);
+        free(file);
     }
     
     fclose(fb_file);
@@ -171,7 +225,87 @@ index_p rebuild_index() {
  * Parses a file and adds its words to the index
  */
 void parse_file_for_index(index_p index, char *file) {
+    FILE *f = fopen(file, "r");
+    if (!f) {
+        printf("Cannot open %s!\nIndex not updated.", file);
+        return;
+    }
     
+    int nr_unique_stems = 0;
+    char ** unique_stems = (char **) malloc(sizeof(char *));
+    
+    char *l;
+    while ((l = read_line(f))) {
+        char *c;
+        
+        // turn non alpha characters into spaces
+        for(c = l; *c; c++) {
+            if(!isalpha(*c)) {
+                *c = ' ';
+            }
+        }
+        
+        char *word = strtok(l, " ");
+        while (word) {
+            char *word_stem = stem(word);
+            
+            // insert document into index / add new stem to index
+            indexed_word_p w = index->words;
+            indexed_word_p p = NULL;
+            int flag = 0;
+            while (w && !flag) {
+                int cmp = strcmp(w->stem, word_stem);
+                if (!cmp) {
+                    // stem is already indexed
+                    flag = 1;
+                } else if (cmp > 0) {
+                    // stem not indexed yet
+                    flag = 2;
+                }
+                
+                p = w;
+                w = w->next;
+            }
+            
+            if (flag == 1) {
+                // stem indexed, add document to list
+                w = (indexed_word_p) realloc(w, sizeof(indexed_word_t) + sizeof(char *) * (w->nr_docs + 1));
+                
+                int i;
+                for (i = 0; i < w->nr_docs; i++) {
+                    int cmp = strcmp(w->documents[i], file);
+                    
+                    if (!cmp) {
+                        // document is already indexed for this stem
+                        break;
+                    } else if (cmp > 0) {
+                        memcpy(w->documents[i+1], w->documents[i], w->nr_docs - i);
+                        w->nr_docs++;
+                    }
+                }
+            } else {
+                // stem is not indexed, add it to index
+                w = (indexed_word_p) malloc(sizeof(indexed_word_t) + sizeof(char *));
+                w->next = NULL;
+                w->nr_docs = 1;
+                w->documents[0] = (char *) malloc(strlen(file) + 1);
+                memcpy(w->documents[0], file, strlen(file) + 1);
+                
+                if (!p) {
+                    index->words = w;
+                } else {
+                    w->next = p->next;
+                    p->next = w;
+                }
+            }
+            
+            word = strtok(NULL, " ");
+        }
+        
+        free(l);
+    }
+    
+    fclose(f);
 }
 
 /*
@@ -253,6 +387,8 @@ index_p load_index() {
             
             doc = strtok(NULL, "|");
         }
+        
+        free(line);
     }
     
     fclose(index_file);
