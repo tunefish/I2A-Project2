@@ -7,10 +7,10 @@
 #include "util.h"
 
 int starts_with(char *str, char *pre);
-char *read_line(FILE *ptr);
 void sanitize_name(char* str);
 
 int main(int argc, void *argv) {
+    load_stopwords();
     index_p index = load_index();
 
     int exit = 0;
@@ -74,8 +74,11 @@ int main(int argc, void *argv) {
             free(file);
         }
     }
+    
+    free(command);
 
     // release memory
+    release_stopwords();
     close_index(index);
 
     return 0;
