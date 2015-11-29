@@ -42,13 +42,13 @@ char *replace_suffix(char *word, int suffix_length, char *replacement);
  */
 int calculate_m(char *word) {
     int parts = 1;
-    
+
     // type (consonant = 1, vowel = 0) of first letter
     char first_type = is_consonant(word, 0);
-    
+
     // type of last checked letter
     char tmp_type = first_type;
-    
+
     int i = 0;
     while (i < strlen(word)) {
         // if last checked type is different from current type, we enter a new part of the word
@@ -58,7 +58,7 @@ int calculate_m(char *word) {
         }
         i++;
     }
-    
+
     //       remove optional initial consonant   remove optional vowel ending
     return (        parts - first_type         -    (parts - first_type)%2    ) / 2;
 }
@@ -81,10 +81,10 @@ int contains_vowel(char *word) {
         if (!is_consonant(word, i)) {
             return 1;
         }
-        
+
         i++;
     }
-    
+
     return 0;
 }
 
@@ -118,7 +118,7 @@ char *replace_suffix(char *word, int suffix_length, char *replacement) {
     if (suffix_length < strlen(replacement)) {
         word = (char *) realloc(word, strlen(word) - suffix_length + strlen(replacement) + 1);
     }
-    
+
     // copy whole replacement string, including \0 string terminator
     memcpy(word + strlen(word) - suffix_length, replacement, strlen(replacement) + 1);
     return word;
@@ -131,15 +131,15 @@ char *stem(char *word) {
     // copy word to new memory location
     char *result = (char *) malloc(strlen(word) + 1);
     memcpy(result, word, strlen(word) + 1);
-    
+
     int m = calculate_m(result);
-    
+
     /* STEP 1a */
     _BEGIN_REPLACE_SUFFIX(result, "sses", "ss")
     _OR_REPLACE_SUFFIX(result, "ies", "i")
     _OR_REPLACE_SUFFIX_COND(result, "s", "", !ends_with(result, "ss"))
     _END_REPLACE_SUFFIX
-    
+
     /* STEP 1b */
     int vowel = contains_vowel(result);
     int cont = 0;
@@ -149,7 +149,7 @@ char *stem(char *word) {
     _OR_REPLACE_SUFFIX_COND(result, "ed", "", vowel)
         cont = 1;
     _END_REPLACE_SUFFIX
-    
+
     int l = strlen(result) - 1;
     if (cont) {
         _BEGIN_REPLACE_SUFFIX(result, "at", "ate")
@@ -160,10 +160,10 @@ char *stem(char *word) {
         _OR_REPLACE_SUFFIX_COND(result, "", "e", m == 1 && ends_with_cvc(result))
         _END_REPLACE_SUFFIX
     }
-    
+
     /* STEP 1c */
     _REPLACE_SUFFIX_COND(result, "y", "i", contains_vowel(result))
-    
+
     /* STEP 2 */
     if (m > 0) {
         _BEGIN_REPLACE_SUFFIX(result, "ational", "ate")
@@ -188,7 +188,7 @@ char *stem(char *word) {
         _OR_REPLACE_SUFFIX(result, "biliti", "ble")
         _END_REPLACE_SUFFIX
     }
-    
+
     /* STEP 3 */
     if (m > 0) {
         _BEGIN_REPLACE_SUFFIX(result, "icate", "ic")
@@ -200,7 +200,7 @@ char *stem(char *word) {
         _OR_REPLACE_SUFFIX(result, "ness", "")
         _END_REPLACE_SUFFIX
     }
-    
+
     /* STEP 4 */
     l = strlen(result) - 1;
     if (m > 1) {
@@ -225,12 +225,12 @@ char *stem(char *word) {
         _OR_REPLACE_SUFFIX(result, "ize", "")
         _END_REPLACE_SUFFIX
     }
-    
+
     /* STEP 5a */
     _REPLACE_SUFFIX_COND(result, "e", "", m > 1 || (m == 1 && ends_with_cvc(result)))
-    
+
     /* STEP 5b */
     _REPLACE_SUFFIX_COND(result, "l", "", m > 1 && ends_with_double_consonant(result))
-    
+
     return result;
 }
