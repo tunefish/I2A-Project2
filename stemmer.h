@@ -1,1 +1,1 @@
-char **stem(char *queue);
+char *stem(char *word);

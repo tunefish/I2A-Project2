@@ -2,6 +2,8 @@
 #include <string.h>
 #include <stdio.h>
 
+#include "stemmer.h"
+
 #define _REPLACE_SUFFIX(__w, __s, __r) \
 BEGIN_REPLACE_SUFFIX(__w, __s, __r) \
 _END_REPLACE_SUFFIX
@@ -126,110 +128,109 @@ char *replace_suffix(char *word, int suffix_length, char *replacement) {
  * Runs Porter Stemming Algorithm on a word
  */
 char *stem(char *word) {
-    int m = calculate_m(word);
+    // copy word to new memory location
+    char *result = (char *) malloc(strlen(word) + 1);
+    memcpy(result, word, strlen(word) + 1);
+    
+    int m = calculate_m(result);
     
     /* STEP 1a */
-    _BEGIN_REPLACE_SUFFIX(word, "sses", "ss")
-    _OR_REPLACE_SUFFIX(word, "ies", "i")
-    _OR_REPLACE_SUFFIX_COND(word, "s", "", !ends_with(word, "ss"))
+    _BEGIN_REPLACE_SUFFIX(result, "sses", "ss")
+    _OR_REPLACE_SUFFIX(result, "ies", "i")
+    _OR_REPLACE_SUFFIX_COND(result, "s", "", !ends_with(result, "ss"))
     _END_REPLACE_SUFFIX
     
     /* STEP 1b */
-    int vowel = contains_vowel(word);
+    int vowel = contains_vowel(result);
     int cont = 0;
-    _BEGIN_REPLACE_SUFFIX_COND(word, "eed", "ee", m > 0)
-    _OR_REPLACE_SUFFIX_COND(word, "ing", "", vowel)
+    _BEGIN_REPLACE_SUFFIX_COND(result, "eed", "ee", m > 0)
+    _OR_REPLACE_SUFFIX_COND(result, "ing", "", vowel)
         cont = 1;
-    _OR_REPLACE_SUFFIX_COND(word, "ed", "", vowel)
+    _OR_REPLACE_SUFFIX_COND(result, "ed", "", vowel)
         cont = 1;
     _END_REPLACE_SUFFIX
     
-    int l = strlen(word) - 1;
+    int l = strlen(result) - 1;
     if (cont) {
-        _BEGIN_REPLACE_SUFFIX(word, "at", "ate")
-        _OR_REPLACE_SUFFIX(word, "bl", "ble")
-        _OR_REPLACE_SUFFIX(word, "iz", "ize")
-        _OR_REPLACE_SUFFIX_COND(word, "", "", ends_with_double_consonant(word) && word[l] != 'l' && word[l] != 's' && word[l] != 'z')
-            word[l] = '\0';
-        _OR_REPLACE_SUFFIX_COND(word, "", "e", m == 1 && ends_with_cvc(word))
+        _BEGIN_REPLACE_SUFFIX(result, "at", "ate")
+        _OR_REPLACE_SUFFIX(result, "bl", "ble")
+        _OR_REPLACE_SUFFIX(result, "iz", "ize")
+        _OR_REPLACE_SUFFIX_COND(result, "", "", ends_with_double_consonant(result) && result[l] != 'l' && result[l] != 's' && result[l] != 'z')
+            result[l] = '\0';
+        _OR_REPLACE_SUFFIX_COND(result, "", "e", m == 1 && ends_with_cvc(result))
         _END_REPLACE_SUFFIX
     }
     
     /* STEP 1c */
-    _REPLACE_SUFFIX_COND(word, "y", "i", contains_vowel(word))
+    _REPLACE_SUFFIX_COND(result, "y", "i", contains_vowel(result))
     
     /* STEP 2 */
     if (m > 0) {
-        _BEGIN_REPLACE_SUFFIX(word, "ational", "ate")
-        _OR_REPLACE_SUFFIX(word, "tional", "tion")
-        _OR_REPLACE_SUFFIX(word, "enci", "ence")
-        _OR_REPLACE_SUFFIX(word, "anci", "ance")
-        _OR_REPLACE_SUFFIX(word, "izer", "ize")
-        _OR_REPLACE_SUFFIX(word, "abli", "able")
-        _OR_REPLACE_SUFFIX(word, "alli", "al")
-        _OR_REPLACE_SUFFIX(word, "entli", "ent")
-        _OR_REPLACE_SUFFIX(word, "eli", "e")
-        _OR_REPLACE_SUFFIX(word, "ousli", "ous")
-        _OR_REPLACE_SUFFIX(word, "ization", "ize")
-        _OR_REPLACE_SUFFIX(word, "ation", "ate")
-        _OR_REPLACE_SUFFIX(word, "ator", "ate")
-        _OR_REPLACE_SUFFIX(word, "alism", "al")
-        _OR_REPLACE_SUFFIX(word, "ivenes", "ive")
-        _OR_REPLACE_SUFFIX(word, "fulness", "ful")
-        _OR_REPLACE_SUFFIX(word, "ousness", "ous")
-        _OR_REPLACE_SUFFIX(word, "aliti", "al")
-        _OR_REPLACE_SUFFIX(word, "iviti", "ive")
-        _OR_REPLACE_SUFFIX(word, "biliti", "ble")
+        _BEGIN_REPLACE_SUFFIX(result, "ational", "ate")
+        _OR_REPLACE_SUFFIX(result, "tional", "tion")
+        _OR_REPLACE_SUFFIX(result, "enci", "ence")
+        _OR_REPLACE_SUFFIX(result, "anci", "ance")
+        _OR_REPLACE_SUFFIX(result, "izer", "ize")
+        _OR_REPLACE_SUFFIX(result, "abli", "able")
+        _OR_REPLACE_SUFFIX(result, "alli", "al")
+        _OR_REPLACE_SUFFIX(result, "entli", "ent")
+        _OR_REPLACE_SUFFIX(result, "eli", "e")
+        _OR_REPLACE_SUFFIX(result, "ousli", "ous")
+        _OR_REPLACE_SUFFIX(result, "ization", "ize")
+        _OR_REPLACE_SUFFIX(result, "ation", "ate")
+        _OR_REPLACE_SUFFIX(result, "ator", "ate")
+        _OR_REPLACE_SUFFIX(result, "alism", "al")
+        _OR_REPLACE_SUFFIX(result, "ivenes", "ive")
+        _OR_REPLACE_SUFFIX(result, "fulness", "ful")
+        _OR_REPLACE_SUFFIX(result, "ousness", "ous")
+        _OR_REPLACE_SUFFIX(result, "aliti", "al")
+        _OR_REPLACE_SUFFIX(result, "iviti", "ive")
+        _OR_REPLACE_SUFFIX(result, "biliti", "ble")
         _END_REPLACE_SUFFIX
     }
     
     /* STEP 3 */
     if (m > 0) {
-        _BEGIN_REPLACE_SUFFIX(word, "icate", "ic")
-        _OR_REPLACE_SUFFIX(word, "ative", "")
-        _OR_REPLACE_SUFFIX(word, "alize", "al")
-        _OR_REPLACE_SUFFIX(word, "aciti", "ic")
-        _OR_REPLACE_SUFFIX(word, "ical", "ic")
-        _OR_REPLACE_SUFFIX(word, "ful", "")
-        _OR_REPLACE_SUFFIX(word, "ness", "")
+        _BEGIN_REPLACE_SUFFIX(result, "icate", "ic")
+        _OR_REPLACE_SUFFIX(result, "ative", "")
+        _OR_REPLACE_SUFFIX(result, "alize", "al")
+        _OR_REPLACE_SUFFIX(result, "aciti", "ic")
+        _OR_REPLACE_SUFFIX(result, "ical", "ic")
+        _OR_REPLACE_SUFFIX(result, "ful", "")
+        _OR_REPLACE_SUFFIX(result, "ness", "")
         _END_REPLACE_SUFFIX
     }
     
     /* STEP 4 */
-    l = strlen(word) - 1;
+    l = strlen(result) - 1;
     if (m > 1) {
-        _BEGIN_REPLACE_SUFFIX(word, "al", "")
-        _OR_REPLACE_SUFFIX(word, "ance", "")
-        _OR_REPLACE_SUFFIX(word, "ence", "")
-        _OR_REPLACE_SUFFIX(word, "er", "")
-        _OR_REPLACE_SUFFIX(word, "ic", "")
-        _OR_REPLACE_SUFFIX(word, "able", "")
-        _OR_REPLACE_SUFFIX(word, "ible", "")
-        _OR_REPLACE_SUFFIX(word, "ant", "")
-        _OR_REPLACE_SUFFIX(word, "ement", "")
-        _OR_REPLACE_SUFFIX(word, "ment", "")
-        _OR_REPLACE_SUFFIX(word, "ent", "")
-        _OR_REPLACE_SUFFIX_COND(word, "ion", "", word[l-3] == 's' || word[l-3] == 't')
-        _OR_REPLACE_SUFFIX(word, "ou", "")
-        _OR_REPLACE_SUFFIX(word, "ism", "")
-        _OR_REPLACE_SUFFIX(word, "ate", "")
-        _OR_REPLACE_SUFFIX(word, "iti", "")
-        _OR_REPLACE_SUFFIX(word, "ous", "")
-        _OR_REPLACE_SUFFIX(word, "ive", "")
-        _OR_REPLACE_SUFFIX(word, "ize", "")
+        _BEGIN_REPLACE_SUFFIX(result, "al", "")
+        _OR_REPLACE_SUFFIX(result, "ance", "")
+        _OR_REPLACE_SUFFIX(result, "ence", "")
+        _OR_REPLACE_SUFFIX(result, "er", "")
+        _OR_REPLACE_SUFFIX(result, "ic", "")
+        _OR_REPLACE_SUFFIX(result, "able", "")
+        _OR_REPLACE_SUFFIX(result, "ible", "")
+        _OR_REPLACE_SUFFIX(result, "ant", "")
+        _OR_REPLACE_SUFFIX(result, "ement", "")
+        _OR_REPLACE_SUFFIX(result, "ment", "")
+        _OR_REPLACE_SUFFIX(result, "ent", "")
+        _OR_REPLACE_SUFFIX_COND(result, "ion", "", result[l-3] == 's' || result[l-3] == 't')
+        _OR_REPLACE_SUFFIX(result, "ou", "")
+        _OR_REPLACE_SUFFIX(result, "ism", "")
+        _OR_REPLACE_SUFFIX(result, "ate", "")
+        _OR_REPLACE_SUFFIX(result, "iti", "")
+        _OR_REPLACE_SUFFIX(result, "ous", "")
+        _OR_REPLACE_SUFFIX(result, "ive", "")
+        _OR_REPLACE_SUFFIX(result, "ize", "")
         _END_REPLACE_SUFFIX
     }
     
     /* STEP 5a */
-    _REPLACE_SUFFIX_COND(word, "e", "", m > 1 || (m == 1 && ends_with_cvc(word)))
+    _REPLACE_SUFFIX_COND(result, "e", "", m > 1 || (m == 1 && ends_with_cvc(result)))
     
     /* STEP 5b */
-    _REPLACE_SUFFIX_COND(word, "l", "", m > 1 && ends_with_double_consonant(word))
+    _REPLACE_SUFFIX_COND(result, "l", "", m > 1 && ends_with_double_consonant(result))
     
-    return word;
-}
-
-int main() {
-    printf("hello world\n");
-    return 0;
+    return result;
 }
