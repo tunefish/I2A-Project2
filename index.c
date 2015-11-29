@@ -1,10 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
 #include "index.h"
 #include "stemmer.h"
 #include "util.h"
+
+#define MAX_SEARCH_RESULTS 10
 
 void write_index_to_file(index_p index);
 void parse_file_for_index(index_p index, char *file);
@@ -14,8 +17,16 @@ int is_stopword(char *word);
 int find_str(char **strs, char *str, int min, int max);
 int find_int(int *ints, int i, int min, int max);
 
+int cmp_doc_found(const void *a, const void *b);
+
 static int nr_stopwords = 0;
 static char **stopwords = NULL;
+
+typedef struct doc_found {
+    int count;              // number of search terms found in a document
+    unsigned long flag;     // if the n-th most significant bit is set, the n-th search term was found in this document (ignoring stopwords)
+    int doc_id;             // index of the document in the filebase
+} doc_found_t, *doc_found_p;
 
 /*
  * Loads stopwords array from the stopwords file
@@ -177,14 +188,15 @@ void remove_file(index_p index, char *file) {
 index_p search_index(index_p index, char *query) {
     nonalpha_to_space(query);
 
-    // a set bit at the n-th least significant bit means the n-th word of the query is found in a document
-    int count[index->nr_docs];
-    int flags[index->nr_docs];
-    memset(count, 0, sizeof(int) * index->nr_docs);
-    memset(flags, 0, sizeof(int) * index->nr_docs);
+    // a set bit at the n-th most significant bit means the n-th word of the query is found in a document
+    doc_found_t found[index->nr_docs];
+    memset(found, 0, sizeof(doc_found_t) * index->nr_docs);
 
     int word_nr = 0;
     char *word = strtok(query, " ");
+
+    // array containing pointers to the stem of the search terms
+    char *words[strlen(query) - strlen(word)];
     while (word) {
         // ignore stop words
         if (is_stopword(word)) {
@@ -199,11 +211,15 @@ index_p search_index(index_p index, char *query) {
             int cmp = strcmp(w->stem, word_stem);
 
             if (!cmp) {
-                int flag = 1 << word_nr;
-                // increase counter of documents in list
-                int i, j;
-                for (i = 0, j = 0; i < w->nr_docs; i++) {
-                    // TODO: get documents
+                // long with <word_nr>-th most significant bit set to 1
+                unsigned long flag = (ULONG_MAX - (ULONG_MAX >> 1)) >> word_nr;
+                
+                // increase counter of documents in list and add flag
+                int i;
+                for (i = 0; i < w->nr_docs; i++) {
+                    found[w->documents[i]].count++;
+                    found[w->documents[i]].flag |= flag;
+                    found[w->documents[i]].doc_id = w->documents[i];
                 }
 
                 break;
@@ -214,10 +230,75 @@ index_p search_index(index_p index, char *query) {
             w = w->next;
         }
 
-        free(word_stem);
+        words[word_nr] = word_stem;
         word = strtok(NULL, " ");
         word_nr++;
     }
+    
+    index_p result = (index_p) malloc(sizeof(index_p) + sizeof(char *) * MAX_SEARCH_RESULTS);
+    result->words = NULL;
+    
+    unsigned long last_flag = 0;
+    indexed_word_p w;
+    
+    // create a index_p struct with the results, each 'word' in this index represents a group of documents which contains the same (sub-)set of search terms
+    int i;
+    for (i = 0; i < MAX_SEARCH_RESULTS; i++) {
+        if (found[i].flag != last_flag) {
+            last_flag = found[i].flag;
+            indexed_word_p w_new = (indexed_word_p) malloc(sizeof(indexed_word_t));
+            w_new->next = NULL;
+            w_new->nr_docs = 0;
+            w_new->stem = (char *) malloc(1);
+            *w_new->stem = '\0';
+            
+            // create a string of all search terms found in this document
+            int k;
+            for (k = sizeof(unsigned long) * 8 - 1; k >= 0; k--) {
+                // check whether k-th least significant bit is set
+                if (last_flag && 1 << k) {
+                    w_new->stem = (char *) realloc(w_new->stem, strlen(w_new->stem) + strlen(words[k]) + 3);
+                    strcat(w_new->stem, ", ");
+                    strcat(w_new->stem, words[k]);
+                }
+            }
+            
+            if (!last_flag) {
+                // first result document: set as first element of linked list
+                result->words = w_new;
+            } else {
+                w->next = w_new;
+            }
+            
+            w = w_new;
+        }
+        
+        // add document to list
+        result->documents[i] = (char *) malloc(strlen(words[i]) + 1);
+        free(words[i]);
+        
+        w = (indexed_word_p) realloc(w, sizeof(indexed_word_p) + sizeof(int *) * (w->nr_docs + 1));
+        w->documents[w->nr_docs] = i;
+        w->nr_docs++;
+    }
+    
+    return result;
+}
+
+/*
+ * Compares two doc_found structs based on the number of found search terms (1st priority) and the first found search term (2nd priority)
+ */
+int cmp_doc_found(const void *a, const void *b) {
+   doc_found_p aa = (doc_found_p) a;
+   doc_found_p bb = (doc_found_p) b;
+   
+   if (aa->count == bb->count && aa->flag == bb->flag) {
+       return 0;
+   } else  if (aa->count > bb->count || (aa->count < bb->count && aa->flag > bb->flag)) {
+       return -1;
+   } else {
+       return 1;
+   }
 }
 
 /*
@@ -300,6 +381,7 @@ void parse_file_for_index(index_p index, char *file) {
                         // document is already indexed for this stem
                         break;
                     } else if (w->documents[i] > doc_id) {
+                        // add document to the list for this stem
                         w = (indexed_word_p) realloc(w, sizeof(indexed_word_t) + sizeof(int *) * (w->nr_docs + 1));
 
                         memcpy(&w->documents[i+1], &w->documents[i], sizeof(int *) * (w->nr_docs - i));
@@ -322,6 +404,7 @@ void parse_file_for_index(index_p index, char *file) {
                 }
             }
 
+            // get next word
             word = strtok(NULL, " ");
         }
 

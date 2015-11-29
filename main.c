@@ -40,7 +40,7 @@ int main(int argc, void *argv) {
 
                     int i;
                     for (i = 0; i < w->nr_docs; i++, count++) {
-                        printf(" [%2d] %s\n", count, w->documents[i]);
+                        printf(" [%2d] %s\n", count, result->documents[w->documents[i]]);
                     }
 
                     w = w->next;
