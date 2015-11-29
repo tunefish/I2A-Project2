@@ -178,7 +178,7 @@ index_p search_index(index_p index, char *query) {
     nonalpha_to_space(query);
 
     // a set bit at the n-th least significant bit means the n-th word of the query is found in a document
-    int count[index->nr_docs];
+	int count[index->nr_docs];
     int flags[index->nr_docs];
     memset(count, 0, sizeof(int) * index->nr_docs);
     memset(flags, 0, sizeof(int) * index->nr_docs);
