@@ -15,7 +15,6 @@ void load_stopwords();
 void release_stopwords();
 int is_stopword(char *word);
 int find_str(char **strs, char *str, int min, int max);
-int find_int(int *ints, int i, int min, int max);
 
 int cmp_doc_found(const void *a, const void *b);
 
@@ -23,9 +22,9 @@ static int nr_stopwords = 0;
 static char **stopwords = NULL;
 
 typedef struct doc_found {
+    int doc_id;             // index of the document in the filebase
     int count;              // number of search terms found in a document
     unsigned long flag;     // if the n-th most significant bit is set, the n-th search term was found in this document (ignoring stopwords)
-    int doc_id;             // index of the document in the filebase
 } doc_found_t, *doc_found_p;
 
 /*
@@ -205,6 +204,9 @@ void remove_file(index_p index, char *file) {
 index_p search_index(index_p index, char *query) {
     nonalpha_to_space(query);
 
+    // array containing pointers to the stem of the search terms
+    char *words[strlen(query)];
+    
     // a set bit at the n-th most significant bit means the n-th word of the query is found in a document
     doc_found_t found[index->nr_docs];
     memset(found, 0, sizeof(doc_found_t) * index->nr_docs);
@@ -212,8 +214,6 @@ index_p search_index(index_p index, char *query) {
     int word_nr = 0;
     char *word = strtok(query, " ");
 
-    // array containing pointers to the stem of the search terms
-    char *words[strlen(query) - strlen(word)];
     while (word) {
         // ignore stop words
         if (is_stopword(word)) {
@@ -234,9 +234,9 @@ index_p search_index(index_p index, char *query) {
                 // increase counter of documents in list and add flag
                 int i;
                 for (i = 0; i < w->nr_docs; i++) {
+                    found[w->documents[i]].doc_id = w->documents[i];
                     found[w->documents[i]].count++;
                     found[w->documents[i]].flag |= flag;
-                    found[w->documents[i]].doc_id = w->documents[i];
                 }
 
                 break;
@@ -256,7 +256,7 @@ index_p search_index(index_p index, char *query) {
     // sort documents by number of search terms found in each document and the order of the search terms
     qsort(&found, index->nr_docs, sizeof(doc_found_t), cmp_doc_found);
     
-    index_p result = (index_p) malloc(sizeof(index_p) + sizeof(char *) * MAX_SEARCH_RESULTS);
+    index_p result = (index_p) malloc(sizeof(index_t) + sizeof(char *) * MAX_SEARCH_RESULTS);
     result->nr_docs = 0;
     result->words = NULL;
     
@@ -282,7 +282,6 @@ index_p search_index(index_p index, char *query) {
                     w_new->stem = (char *) realloc(w_new->stem, strlen(w_new->stem) + strlen(words[k]) + 3);
                     strcat(w_new->stem, words[k]);
                     strcat(w_new->stem, ", ");
-                    printf("found %s => %s\n", words[k], w_new->stem);
                 }
             }
             
@@ -302,13 +301,14 @@ index_p search_index(index_p index, char *query) {
             last_flag = found[i].flag;
         }
         
-        w = (indexed_word_p) realloc(w, sizeof(indexed_word_t) + sizeof(int *) * (w->nr_docs + 1));
+        w = (indexed_word_p) realloc(w, sizeof(indexed_word_t) + sizeof(int) * (w->nr_docs + 1));
         w->documents[w->nr_docs] = i;
         w->nr_docs++;
         
         // copy name of the document into result index
-        result->documents[i] = (char *) malloc(strlen(index->documents[found[i].doc_id]) + 1);
-        memcpy(result->documents[i], index->documents[found[i].doc_id], strlen(index->documents[found[i].doc_id]) + 1);
+        char *d = index->documents[found[i].doc_id];
+        result->documents[i] = (char *) malloc(strlen(d) + 1);
+        memcpy(result->documents[i], d, strlen(d) + 1);
         result->nr_docs++;
         
         if (!p) {
@@ -440,7 +440,7 @@ void parse_file_for_index(index_p index, char *file) {
                 // only add document to list if it's not already in the list
                 if (flag) {
                     // add document to the list for this stem
-                    w = (indexed_word_p) realloc(w, sizeof(indexed_word_t) + sizeof(int *) * (w->nr_docs + 1));
+                    w = (indexed_word_p) realloc(w, sizeof(indexed_word_t) + sizeof(int) * (w->nr_docs + 1));
                     
                     if (!p) {
                         index->words = w;
@@ -448,7 +448,7 @@ void parse_file_for_index(index_p index, char *file) {
                         p->next = w;
                     }
 
-                    memcpy(&w->documents[i+1], &w->documents[i], sizeof(int *) * (w->nr_docs - i));
+                    memcpy(&w->documents[i+1], &w->documents[i], sizeof(int) * (w->nr_docs - i));
                     w->documents[i] = doc_id;
                     w->nr_docs++;
                 }
@@ -456,7 +456,7 @@ void parse_file_for_index(index_p index, char *file) {
                 free(word_stem);
             } else {
                 // stem is not indexed, add it to index
-                w = (indexed_word_p) malloc(sizeof(indexed_word_t) + sizeof(int *));
+                w = (indexed_word_p) malloc(sizeof(indexed_word_t) + sizeof(int));
                 w->stem = word_stem;
                 w->nr_docs = 1;
                 w->documents[0] = doc_id;
@@ -663,27 +663,4 @@ int find_str(char **strs, char *str, int min, int max) {
     
     // finished searching
     return -1;
-}
-
-/*
- * Binary search for document by its name
- */
-int find_int(int *ints, int i, int min, int max) {
-    int middle = (min + max) / 2;
-
-    if (ints[middle] == i) {
-        // int found
-        return middle;
-    } else if (min != max) {
-        if (ints[middle] > i) {
-            // continue search in left half
-            return find_int(ints, i, min, middle - 1);
-        } else {
-            // continue search in right half
-            return find_int(ints, i, middle + 1, max);
-        }
-    } else {
-        // finished searching
-        return -1;
-    }
 }
