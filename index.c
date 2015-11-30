@@ -107,7 +107,6 @@ index_p add_file(index_p index, char *file) {
     }
 
     // insert document in list
-    printf("index %d\n", doc_id); // DEBUG
     index = (index_p) realloc(index, sizeof(index_t) + sizeof(char *) * (index->nr_docs + 1));
     memcpy(&index->documents[doc_id+1], &index->documents[doc_id], sizeof(char *) * (index->nr_docs - doc_id));
     index->documents[doc_id] = (char *) malloc(strlen(file) + 1);
@@ -137,26 +136,44 @@ index_p add_file(index_p index, char *file) {
  * Removes a file from index
  */
 void remove_file(index_p index, char *file) {
+    if (!index->nr_docs) {
+        printf("Filebase empty!\n");
+        return;
+    }
+    
     int doc_id = find_str(index->documents, file, 0, index->nr_docs - 1);
+    
+    if (doc_id < 0) {
+        printf("Error: %s is not in the filebase!\n", file);
+        return;
+    }
 
     // remove document from list in index
     free(index->documents[doc_id]);
-    memcpy(&index->documents[doc_id], &index->documents[doc_id+1], index->nr_docs - 1);
+    memcpy(&index->documents[doc_id], &index->documents[doc_id+1], sizeof(char *) * (index->nr_docs - 1));
     index->nr_docs--;
 
-    // remove document from each list of each indexed word
+    // remove document from the list of each indexed word
     indexed_word_p w = index->words;
     indexed_word_p p = NULL;
     while (w) {
+        // find index of removed document in list (or of first document with higher id)
         int i;
+        int remove = 0;
         for (i = 0; i < w->nr_docs; i++) {
             if (w->documents[i] == doc_id) {
-                memcpy(&w->documents[i], &w->documents[i+1], (w->nr_docs - i - 1) * sizeof(int *));
                 w->nr_docs--;
+                // document found in list, indicate removal
+                remove = 1;
+                break;
             } else if (w->documents[i] > doc_id) {
-                // update index
-                w->documents[i]--;
+                break;
             }
+        }
+        
+        // reduce document id of all documents with id > remoced document id and shift array items if neccessary
+        for (; i < w->nr_docs; i++) {
+            w->documents[i] = w->documents[i+remove] - 1;
         }
 
         if (w->nr_docs == 0) {
@@ -212,7 +229,7 @@ index_p search_index(index_p index, char *query) {
 
             if (!cmp) {
                 // long with <word_nr>-th most significant bit set to 1
-                unsigned long flag = (ULONG_MAX - (ULONG_MAX >> 1)) >> word_nr;
+                unsigned long flag = 1 << (sizeof(unsigned long) * 8 - 1 - word_nr);
                 
                 // increase counter of documents in list and add flag
                 int i;
@@ -230,22 +247,27 @@ index_p search_index(index_p index, char *query) {
             w = w->next;
         }
 
+        // save stem for later and continue with next search term
         words[word_nr] = word_stem;
         word = strtok(NULL, " ");
         word_nr++;
     }
     
+    // sort documents by number of search terms found in each document and the order of the search terms
+    qsort(&found, index->nr_docs, sizeof(doc_found_t), cmp_doc_found);
+    
     index_p result = (index_p) malloc(sizeof(index_p) + sizeof(char *) * MAX_SEARCH_RESULTS);
+    result->nr_docs = 0;
     result->words = NULL;
     
     unsigned long last_flag = 0;
-    indexed_word_p w;
+    indexed_word_p w = NULL;
+    indexed_word_p p = NULL;
     
     // create a index_p struct with the results, each 'word' in this index represents a group of documents which contains the same (sub-)set of search terms
     int i;
-    for (i = 0; i < MAX_SEARCH_RESULTS && found[i].flag; i++) {
+    for (i = 0; i < MAX_SEARCH_RESULTS && i < index->nr_docs && found[i].flag; i++) {
         if (found[i].flag != last_flag) {
-            last_flag = found[i].flag;
             indexed_word_p w_new = (indexed_word_p) malloc(sizeof(indexed_word_t));
             w_new->next = NULL;
             w_new->nr_docs = 0;
@@ -254,14 +276,19 @@ index_p search_index(index_p index, char *query) {
             
             // create a string of all search terms found in this document
             int k;
-            for (k = sizeof(unsigned long) * 8 - 1; k >= 0; k--) {
-                // check whether k-th least significant bit is set
-                if (last_flag && 1 << k) {
+            for (k = 0; k < word_nr; k++) {
+                // check whether k-th most significant bit is set
+                if (found[i].flag & (1 << (sizeof(unsigned long) * 8 - 1 - k))) {
                     w_new->stem = (char *) realloc(w_new->stem, strlen(w_new->stem) + strlen(words[k]) + 3);
-                    strcat(w_new->stem, ", ");
                     strcat(w_new->stem, words[k]);
+                    strcat(w_new->stem, ", ");
+                    printf("found %s => %s\n", words[k], w_new->stem);
                 }
             }
+            
+            // remove final ', '
+            *(w_new->stem + strlen(w_new->stem) - 1) = '\0';
+            *(w_new->stem + strlen(w_new->stem) - 1) = '\0';
             
             if (!last_flag) {
                 // first result document: set as first element of linked list
@@ -270,16 +297,30 @@ index_p search_index(index_p index, char *query) {
                 w->next = w_new;
             }
             
+            p = w;
             w = w_new;
+            last_flag = found[i].flag;
         }
         
-        // add document to list
-        result->documents[i] = (char *) malloc(strlen(words[i]) + 1);
-        free(words[i]);
-        
-        w = (indexed_word_p) realloc(w, sizeof(indexed_word_p) + sizeof(int *) * (w->nr_docs + 1));
+        w = (indexed_word_p) realloc(w, sizeof(indexed_word_t) + sizeof(int *) * (w->nr_docs + 1));
         w->documents[w->nr_docs] = i;
         w->nr_docs++;
+        
+        // copy name of the document into result index
+        result->documents[i] = (char *) malloc(strlen(index->documents[found[i].doc_id]) + 1);
+        memcpy(result->documents[i], index->documents[found[i].doc_id], strlen(index->documents[found[i].doc_id]) + 1);
+        result->nr_docs++;
+        
+        if (!p) {
+            result->words = w;
+        } else {
+            p->next = w;
+        }
+    }
+    
+    // free memory of the search terms
+    for (i = 0; i < word_nr; i++) {
+        free(words[i]);
     }
     
     return result;
@@ -328,12 +369,17 @@ void rebuild_index(index_p index) {
 void parse_file_for_index(index_p index, char *file) {
     FILE *f = fopen(file, "r");
     if (!f) {
-        printf("Cannot open %s!\nIndex not updated.", file);
+        printf("Cannot open %s!\nIndex not updated.\n", file);
         return;
     }
 
     // document id = index of document in list of all documents in filebase (alphabetically ordered)
     int doc_id = find_str(index->documents, file, 0, index->nr_docs-1);
+    
+    if (doc_id < 0) {
+        printf("Error: %s is not in the filebase!\n", file);
+        return;
+    }
 
     int nr_unique_stems = 0;
     char ** unique_stems = (char **) malloc(sizeof(char *));
@@ -352,7 +398,6 @@ void parse_file_for_index(index_p index, char *file) {
             }
 
             char *word_stem = stem(word);
-            printf("%s -> %s\n", word, word_stem); //DEBUG
             
             if (!strlen(word_stem)) {
                 word = strtok(NULL, " ");
@@ -364,7 +409,6 @@ void parse_file_for_index(index_p index, char *file) {
             indexed_word_p p = NULL;
             int flag = 0;
             while (w && !flag) {
-                printf("%s, ", w->stem);//DEBUG
                 int cmp = strcmp(w->stem, word_stem);
                 if (!cmp) {
                     // stem is already indexed
@@ -381,7 +425,6 @@ void parse_file_for_index(index_p index, char *file) {
             }
 
             if (flag == 1) {
-                printf("already indexed!!\n");
                 // stem indexed, add document to list
                 int i;
                 for (i = 0; i < w->nr_docs; i++) {
@@ -398,7 +441,12 @@ void parse_file_for_index(index_p index, char *file) {
                 if (flag) {
                     // add document to the list for this stem
                     w = (indexed_word_p) realloc(w, sizeof(indexed_word_t) + sizeof(int *) * (w->nr_docs + 1));
-                    p->next = w;
+                    
+                    if (!p) {
+                        index->words = w;
+                    } else {
+                        p->next = w;
+                    }
 
                     memcpy(&w->documents[i+1], &w->documents[i], sizeof(int *) * (w->nr_docs - i));
                     w->documents[i] = doc_id;
@@ -407,7 +455,6 @@ void parse_file_for_index(index_p index, char *file) {
                 
                 free(word_stem);
             } else {
-                printf("add %s here!!\n", word_stem);
                 // stem is not indexed, add it to index
                 w = (indexed_word_p) malloc(sizeof(indexed_word_t) + sizeof(int *));
                 w->stem = word_stem;
