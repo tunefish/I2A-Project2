@@ -30,6 +30,7 @@ int main(int argc, void *argv) {
 
             index_p result = search_index(index, query);
 
+            printf("Results (showing no more than 10, there might be more):");
             if (result) {
                 // print result
                 int count = 0;
@@ -39,7 +40,7 @@ int main(int argc, void *argv) {
                 }
                 
                 while (w) {
-                    printf("Documents containing %s (showing no more than 10, there might be more):\n", w->stem);
+                    printf("Documents containing %s:\n", w->stem);
 
                     int i;
                     for (i = 0; i < w->nr_docs; i++, count++) {
@@ -51,7 +52,7 @@ int main(int argc, void *argv) {
 
                 close_index(result);
             } else {
-                printf("No results found in filebase!\n");
+                printf("No documents found for search term %s\n", query);
             }
 
             free(query);
